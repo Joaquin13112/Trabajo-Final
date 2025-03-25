@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { VisitorsChart } from '../components/VisitorsChart';
 
 const FEATURED_DESTINATIONS = [
   {
@@ -49,6 +50,8 @@ export default function HomeScreen() {
         <Text style={styles.welcomeText}>Bienvenido a</Text>
         <Text style={styles.appName}>Travelling-Viajes</Text>
       </View>
+
+      <VisitorsChart />
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Destinos Destacados</Text>
