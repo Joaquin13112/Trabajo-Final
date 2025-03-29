@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { SplashScreen } from "expo-router";
 import { View, StatusBar } from "react-native";
-// import ChatBotButton from "./components/chat-bot-button";
+import ChatBotButton from "./components/chat-bot-button";
 import { AuthProvider } from "@/context/AuthContext";
 import { useFrameworkReady } from "@/hooks/useFrameworkReady";
 import {
@@ -46,7 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
         </Stack>
-        {/* <ChatBotButton botUrl="https://landbot.online/v3/H-2842958-YIV8YSA48UZ9EVTC/index.html" position="bottomRight" /> */}
+        <ChatBotButton botUrl="https://landbot.online/v3/H-2842958-YIV8YSA48UZ9EVTC/index.html" position="bottomRight" />
         <StatusBar barStyle="dark-content" />
       </View>
     </AuthProvider>
