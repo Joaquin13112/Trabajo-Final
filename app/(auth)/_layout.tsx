@@ -1,10 +1,15 @@
-import { Stack } from 'expo-router';
+import { Stack } from "expo-router"
+import { Toaster } from "sonner-native"
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-    </Stack>
-  );
+    <>
+      <Toaster richColors position="top-center" />
+      <Stack>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+      </Stack>
+    </>
+  )
 }
+

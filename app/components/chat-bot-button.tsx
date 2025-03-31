@@ -69,7 +69,7 @@ export default function ChatBotButton({
         return { ...base, top: 0, left: 0 }
       case "bottomRight":
       default:
-        return { ...base, bottom: 50, right: 0 }
+        return { ...base, bottom: 60, right: 0 }
     }
   }
 
