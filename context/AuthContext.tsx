@@ -3,9 +3,10 @@
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { router, useSegments, useRootNavigationState } from "expo-router"
-import * as SecureStore from "expo-secure-store"
 import { Alert } from "react-native"
 import { jwtDecode } from "jwt-decode"
+import { storage } from "@/app/utils/storage"
+import { api } from "@/app/utils/api-client"
 
 type User = {
   id: string
@@ -24,7 +25,7 @@ type RegisterData = {
 type AuthContextType = {
   user: User
   login: (email: string, password: string) => Promise<void>
-  register: (data: RegisterData) => Promise<any> // Cambiado para devolver la respuesta
+  register: (data: RegisterData) => Promise<any>
   logout: () => void
   isLoading: boolean
   error: string | null
@@ -58,19 +59,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const loadUser = async () => {
       setIsLoading(true)
       try {
-        const token = await SecureStore.getItemAsync("userToken")
-        const email = await SecureStore.getItemAsync("userEmail")
+        const token = await storage.getItem("userToken")
+        const email = await storage.getItem("userEmail")
 
         if (token && email) {
-          const decoded = jwtDecode<JwtPayload>(token)
-          setUser({
-            id: decoded.sub,
-            email,
-            token,
-          })
+          try {
+            const decoded = jwtDecode<JwtPayload>(token)
+            setUser({
+              id: decoded.sub,
+              email,
+              token,
+            })
+            console.log("[AUTH] Usuario cargado:", email)
+          } catch (e) {
+            console.error("[AUTH] Error decodificando token:", e)
+            // Token inválido, lo eliminamos
+            await storage.removeItem("userToken")
+            await storage.removeItem("userEmail")
+          }
         }
       } catch (error) {
-        console.error("Error loading user:", error)
+        console.error("[AUTH] Error loading user:", error)
       } finally {
         setIsLoading(false)
       }
@@ -100,32 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[AUTH] Intentando registrar usuario:", data.email)
 
-      const response = await fetch("http://192.168.101.77:8080/api/clientes/registrar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-
-      console.log(`[AUTH] Respuesta de registro: ${response.status}`)
-
-      const contentType = response.headers.get("content-type")
-      let responseData
-
-      if (contentType && contentType.includes("application/json")) {
-        responseData = await response.json()
-        console.log("[AUTH] Datos de registro recibidos:", JSON.stringify(responseData))
-      } else {
-        const textResponse = await response.text()
-        console.log("[AUTH] Respuesta no-JSON:", textResponse)
-        throw new Error("Respuesta del servidor no es JSON válido")
-      }
-
-      if (!response.ok) {
-        throw new Error(responseData.message || `Error ${response.status}: ${response.statusText}`)
-      }
+      // Usar nuestro cliente API sin autenticación
+      const responseData = await api.post("clientes/registrar", data, { includeAuth: false })
 
       console.log("[AUTH] Registro exitoso para:", data.email)
 
@@ -152,52 +137,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null)
 
     try {
-      // Determinar la URL según la plataforma
-      const apiUrl = "http://192.168.101.77:8080/api/clientes/login"
+      console.log(`[AUTH] Intentando iniciar sesión con: ${email}`)
 
-      // Para depuración - muestra la URL que se está usando
-      console.log(`[AUTH] Intentando conectar a: ${apiUrl}`)
-      console.log(`[AUTH] Datos: email=${email}, password=****`)
-
-      // Configuración de la petición con timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 segundos de timeout
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
+      // Usar nuestro cliente API sin autenticación
+      const data = await api.post(
+        "clientes/login",
+        {
           email: email.trim().toLowerCase(),
           password,
-        }),
-        signal: controller.signal,
-      })
-
-      // Limpiar el timeout
-      clearTimeout(timeoutId)
-
-      // Para depuración
-      console.log(`[AUTH] Respuesta del servidor: ${response.status}`)
-
-      // Verificar si la respuesta es JSON antes de parsearla
-      const contentType = response.headers.get("content-type")
-      let data
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json()
-        console.log("[AUTH] Datos recibidos:", JSON.stringify(data))
-      } else {
-        const textResponse = await response.text()
-        console.log("[AUTH] Respuesta no-JSON:", textResponse)
-        throw new Error("Respuesta del servidor no es JSON válido")
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`)
-      }
+        },
+        { includeAuth: false },
+      )
 
       if (!data.token) {
         throw new Error("No se recibió token en la respuesta")
@@ -210,8 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token: data.token,
       }
 
-      await SecureStore.setItemAsync("userToken", data.token)
-      await SecureStore.setItemAsync("userEmail", email.trim().toLowerCase())
+      // Guardar datos del usuario
+      await storage.setItem("userToken", data.token)
+      await storage.setItem("userEmail", email.trim().toLowerCase())
 
       setUser(userData)
       console.log("[AUTH] Login exitoso para:", email)
@@ -221,9 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Mejorar el mensaje de error para problemas de red
       let errorMessage = error.message || "Error de conexión"
 
-      if (error.name === "AbortError") {
-        errorMessage = "La conexión tardó demasiado tiempo. Verifica tu conexión a internet."
-      } else if (error.message?.includes("Network request failed")) {
+      if (error.message?.includes("Network request failed")) {
         errorMessage = "Error de conexión a la red. Verifica tu conexión y la dirección IP del servidor."
       } else if (error.message?.includes("JSON")) {
         errorMessage = "Error en la respuesta del servidor. Formato incorrecto."
@@ -238,11 +187,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await SecureStore.deleteItemAsync("userToken")
-      await SecureStore.deleteItemAsync("userEmail")
+      // Obtener el token antes de eliminarlo
+      const token = await storage.getItem("userToken")
+
+      if (token) {
+        console.log("[AUTH] Intentando cerrar sesión en el servidor")
+
+        // Llamar a la API de logout
+        try {
+          await api.post(
+            "auth/logout",
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            },
+          )
+          console.log("[AUTH] Sesión cerrada en el servidor correctamente")
+        } catch (apiError) {
+          console.error("[AUTH] Error al cerrar sesión en el servidor:", apiError)
+          // Continuamos con el logout local incluso si falla el servidor
+        }
+      }
+
+      // Eliminar datos de sesión localmente
+      await storage.removeItem("userToken")
+      await storage.removeItem("userEmail")
       setUser(null)
+      console.log("[AUTH] Sesión local cerrada correctamente")
     } catch (error) {
-      console.error("Logout error:", error)
+      console.error("[AUTH] Error en logout:", error)
       Alert.alert("Error", "No se pudo cerrar sesión")
     }
   }

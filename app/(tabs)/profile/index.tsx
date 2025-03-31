@@ -1,9 +1,20 @@
 "use client"
 
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from "react-native"
+import { useState, useEffect } from "react"
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native"
 import { Settings, CreditCard, Bell, CircleHelp as HelpCircle, LogOut, ChevronRight } from "lucide-react-native"
 import { useAuth } from "@/context/AuthContext"
-import { Link } from "expo-router"
+import { Link, useRouter } from "expo-router"
+import { api } from "@/app/utils/api-client"
+
+// Tipo para los datos del perfil del usuario
+type ProfileData = {
+  id: string
+  nombre: string
+  apellido: string
+  email: string
+  // Añade otros campos según tu API
+}
 
 // Definir el tipo para los elementos del menú
 type MenuItem = {
@@ -50,20 +61,53 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth()
+  const [profileData, setProfileData] = useState<ProfileData | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
-  const handleLogout = () => {
-    Alert.alert("Cerrar Sesión", "¿Estás seguro que deseas cerrar sesión?", [
-      {
-        text: "Cancelar",
-        style: "cancel",
-      },
-      {
-        text: "Sí, cerrar sesión",
-        style: "destructive",
-        onPress: () => logout(),
-      },
-    ])
+  // Cargar datos del perfil cuando el componente se monta
+  useEffect(() => {
+    if (user?.id) {
+      loadProfileData()
+    }
+  }, [user])
+
+  // Función para cargar los datos del perfil desde la API
+  const loadProfileData = async () => {
+    if (!user?.id) return
+
+    setIsLoading(true)
+    try {
+      // Usar nuestro cliente API que automáticamente incluye el token
+      const data = await api.get<ProfileData>(`clientes/${user.id}`)
+      console.log("[PROFILE] Datos cargados:", data)
+      setProfileData(data)
+    } catch (error: any) {
+      console.error("[PROFILE] Error cargando datos:", error)
+      Alert.alert("Error", "No se pudieron cargar los datos del perfil. Por favor, intenta de nuevo más tarde.")
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  // Función para manejar el cierre de sesión
+  const handleLogout = async () => {
+    try {
+      // Primero navegamos a la pantalla de login
+      router.replace("/(auth)/login")
+
+      // Luego hacemos el logout para limpiar el estado
+      setTimeout(async () => {
+        await logout()
+      }, 100)
+    } catch (error) {
+      console.error("[LOGOUT] Error:", error)
+      Alert.alert("Error", "No se pudo cerrar sesión correctamente")
+    }
+  }
+
+  // Nombre completo del usuario
+  const fullName = profileData ? `${profileData.nombre} ${profileData.apellido}` : "Usuario"
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -76,8 +120,14 @@ export default function ProfileScreen() {
             style={styles.profileImage}
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.name}>{user?.name || "Usuario"}</Text>
-            <Text style={styles.email}>{user?.email || "usuario@email.com"}</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FF385C" />
+            ) : (
+              <>
+                <Text style={styles.name}>{fullName}</Text>
+                <Text style={styles.email}>{profileData?.email || user?.email || "usuario@email.com"}</Text>
+              </>
+            )}
           </View>
           <TouchableOpacity style={styles.editButton}>
             <Text style={styles.editButtonText}>Editar</Text>
@@ -166,6 +216,8 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1,
     marginLeft: 16,
+    justifyContent: "center",
+    minHeight: 60,
   },
   name: {
     fontFamily: "Poppins_600SemiBold",

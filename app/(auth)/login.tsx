@@ -29,12 +29,6 @@ export default function LoginScreen() {
   const { login, isLoading } = useAuth()
 
   // Para pruebas en desarrollo, pre-llenar credenciales
-  useEffect(() => {
-    if (__DEV__) {
-      setEmail("eliuarmasp25@gmail.com")
-      setPassword("liu")
-    }
-  }, [])
 
   const handleLogin = async () => {
     setError("")
