@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   View,
   Text,
@@ -17,69 +17,65 @@ import {
 import { Link } from "expo-router"
 import { useAuth } from "@/context/AuthContext"
 import { Mail, Lock, ArrowRight } from "lucide-react-native"
-
-// Variable global para desarrollo
-const __DEV__ = process.env.NODE_ENV === "development"
+import { toast } from "sonner-native"
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [successMessage, setSuccessMessage] = useState("")
   const { login, isLoading } = useAuth()
-
-  // Para pruebas en desarrollo, pre-llenar credenciales
 
   const handleLogin = async () => {
     setError("")
-    setSuccessMessage("")
 
     // Validaciones mejoradas
     if (!email || !password) {
       setError("Por favor complete todos los campos")
-      Alert.alert("Error", "Por favor complete todos los campos")
+      toast.error("Por favor complete todos los campos")
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       setError("Por favor ingrese un email válido")
-      Alert.alert("Error", "Por favor ingrese un email válido")
+      toast.error("Por favor ingrese un email válido")
       return
     }
 
     if (password.length < 2) {
       setError("La contraseña debe tener al menos 2 caracteres")
-      Alert.alert("Error", "La contraseña debe tener al menos 2 caracteres")
+      toast.error("La contraseña debe tener al menos 2 caracteres")
       return
     }
 
     try {
-      console.log(`[LOGIN] Intentando iniciar sesión con: ${email}`)
+      console.log(`Intentando iniciar sesión con: ${email}`)
       await login(email, password)
-      console.log("[LOGIN] Inicio de sesión exitoso")
-
-      // Mostrar mensaje de éxito en la pantalla
-      setSuccessMessage("¡Inicio de sesión exitoso!")
-
-      // Mostrar alerta de éxito
-      Alert.alert("Éxito", "¡Inicio de sesión exitoso!")
+      toast.success("¡Inicio de sesión exitoso!")
     } catch (err: any) {
-      console.error("[LOGIN] Error en handleLogin:", err)
+      console.error("Error en handleLogin:", err)
 
       let errorMessage = "Error de inicio de sesión"
 
       // Manejo específico de errores
       if (err.message?.includes("401") || err.message?.includes("Credenciales")) {
         errorMessage = "Email o contraseña incorrectos"
-      } else if (err.message?.includes("Network request failed") || err.message?.includes("conexión")) {
+      } else if (err.message?.includes("Network request failed")) {
         errorMessage = "Error de conexión. Verifique su internet y la dirección IP del servidor"
-      } else if (err.message?.includes("Failed to fetch") || err.message?.includes("conectar")) {
+      } else if (err.message?.includes("Failed to fetch")) {
         errorMessage = "No se pudo conectar al servidor"
       }
 
       setError(errorMessage)
-      Alert.alert("Error", errorMessage)
+      toast.error(errorMessage)
+
+      // Mostrar alerta con información de depuración en desarrollo
+      if (__DEV__) {
+        Alert.alert(
+          "Error de depuración",
+          `Detalles del error:\n${err.message}\n\nVerifica la IP del servidor y tu conexión de red.`,
+        )
+      }
     }
   }
 
@@ -105,7 +101,6 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
           <View style={styles.inputContainer}>
             <Mail size={20} color="#72777A" style={styles.inputIcon} />
@@ -244,13 +239,6 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     color: "#FF385C",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  successText: {
-    fontFamily: "Poppins_400Regular",
-    fontSize: 14,
-    color: "#4CAF50",
     marginBottom: 16,
     textAlign: "center",
   },

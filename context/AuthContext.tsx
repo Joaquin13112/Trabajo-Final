@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Llamar a la API de logout
         try {
           await api.post(
-            "auth/logout",
+            "api/auth/logout",
             {},
             {
               headers: {
